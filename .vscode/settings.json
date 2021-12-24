@@ -1,0 +1,7 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "/workspaces/exercism-exercises/rust/resistor-color/Cargo.toml",
+        "/workspaces/exercism-exercises/rust/triangle/Cargo.toml",
+        "/workspaces/exercism-exercises/rust/luhn/Cargo.toml"
+    ]
+}
