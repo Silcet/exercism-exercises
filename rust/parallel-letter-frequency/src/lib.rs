@@ -1,71 +1,41 @@
-use std::{
-    collections::HashMap,
-    sync::mpsc::{self, Receiver, Sender},
-    thread,
-};
-
-type ThreadChannel = (Sender<HashMap<char, usize>>, Receiver<HashMap<char, usize>>);
+use std::collections::HashMap;
 
 pub fn frequency(input: &[&str], worker_count: usize) -> HashMap<char, usize> {
-    println!("Workers: {} {:?}", worker_count, input);
-    let (tx, rx): ThreadChannel = mpsc::channel();
+    let slice_size = input.len() / worker_count;
+    let leftover = input.len() % worker_count;
 
-    let mut channels: Vec<Sender<Option<String>>> = Vec::with_capacity(worker_count);
-    let mut children = Vec::new();
-    for _ in 0..worker_count {
-        let (tx1, rx1) = mpsc::channel();
-        channels.push(tx1);
-        let thread_tx = tx.clone();
-
-        let child = thread::spawn(|| word_counter(thread_tx, rx1));
-
-        children.push(child);
-    }
-
-    let mut thread_counter = 0;
-    for s in input.iter() {
-        channels[thread_counter]
-            .send(Some(s.to_string()))
-            .expect("Failed to send str to thread");
-        thread_counter += 1;
-        if thread_counter >= worker_count {
-            thread_counter = 0;
-        }
-    }
-
-    for c in channels {
-        c.send(None).unwrap();
-    }
-
-    let mut res = HashMap::new();
-
-    for _ in 0..input.len() {
-        let map = rx.recv().unwrap();
-        for (k, v) in map {
-            let value = res.entry(k).or_insert(0);
-            *value += v;
-        }
-    }
-
-    res
+    crossbeam::scope(|s| {
+        (1..=worker_count)
+            .map(|i| {
+                (
+                    slice_size * (i - 1),
+                    if i < worker_count {
+                        slice_size * i
+                    } else {
+                        slice_size * i + leftover
+                    },
+                )
+            })
+            .map(|(start, end)| s.spawn(move |_| word_counter(&input[start..end])))
+            .map(|c| c.join().unwrap())
+            .reduce(|mut map, slice| {
+                for (k, v) in slice {
+                    (*map.entry(k).or_insert(0)) += v;
+                }
+                map
+            })
+            .unwrap()
+    })
+    .unwrap()
 }
 
-fn word_counter(response_tx: Sender<HashMap<char, usize>>, order_rx: Receiver<Option<String>>) {
-    loop {
-        let slice = order_rx.recv().expect("Failed to receive str in thread");
-        if slice.is_none() {
-            return;
+fn word_counter(input: &[&str]) -> HashMap<char, usize> {
+    let mut slice_map: HashMap<char, usize> = HashMap::new();
+    for slice in input {
+        for c in slice.chars().filter(|c| c.is_alphabetic()) {
+            (*slice_map.entry(c.to_ascii_lowercase()).or_insert(0)) += 1;
         }
-
-        let mut map = HashMap::new();
-
-        for c in slice.unwrap().chars() {
-            if c.is_alphabetic() {
-                let value = map.entry(c.to_ascii_lowercase()).or_insert(0);
-                *value += 1;
-            }
-        }
-
-        response_tx.send(map).unwrap()
     }
+
+    slice_map
 }
