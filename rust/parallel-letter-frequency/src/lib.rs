@@ -1,35 +1,40 @@
 use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 pub fn frequency(input: &[&str], worker_count: usize) -> HashMap<char, usize> {
     let slice_size = input.len() / worker_count;
     let leftover = input.len() % worker_count;
 
+    let map: Arc<RwLock<HashMap<char, usize>>> = Arc::new(RwLock::new(HashMap::new()));
+
     crossbeam::scope(|s| {
-        (1..=worker_count)
-            .map(|i| {
-                (
-                    slice_size * (i - 1),
-                    if i < worker_count {
-                        slice_size * i
-                    } else {
-                        slice_size * i + leftover
-                    },
-                )
-            })
-            .map(|(start, end)| s.spawn(move |_| word_counter(&input[start..end])))
-            .map(|c| c.join().unwrap())
-            .reduce(|mut map, slice| {
-                for (k, v) in slice {
-                    (*map.entry(k).or_insert(0)) += v;
-                }
-                map
-            })
-            .unwrap()
+        let mut threads = Vec::new();
+        for i in 1..=worker_count {
+            let range = (
+                slice_size * (i - 1),
+                if i < worker_count {
+                    slice_size * i
+                } else {
+                    slice_size * i + leftover
+                },
+            );
+
+            let map = map.clone();
+
+            threads.push(s.spawn(move |_| word_counter(&input[range.0..range.1], map)));
+        }
+
+        for thread in threads {
+            thread.join().unwrap();
+        }
     })
-    .unwrap()
+    .unwrap();
+
+    let res = map.read().unwrap().clone();
+    res
 }
 
-fn word_counter(input: &[&str]) -> HashMap<char, usize> {
+fn word_counter(input: &[&str], map: Arc<RwLock<HashMap<char, usize>>>) {
     let mut slice_map: HashMap<char, usize> = HashMap::new();
     for slice in input {
         for c in slice.chars().filter(|c| c.is_alphabetic()) {
@@ -37,5 +42,8 @@ fn word_counter(input: &[&str]) -> HashMap<char, usize> {
         }
     }
 
-    slice_map
+    let mut temp_map = map.write().unwrap();
+    for (k, v) in slice_map {
+        (*temp_map.entry(k).or_insert(0)) += v;
+    }
 }
