@@ -7,5 +7,6 @@
         "/workspaces/exercism-exercises/rust/macros/Cargo.toml",
         "/workspaces/exercism-exercises/rust/all-your-base/Cargo.toml",
         "/workspaces/exercism-exercises/rust/allergies/Cargo.toml",
+        "/workspaces/exercism-exercises/rust/tournament/Cargo.toml",
     ]
 }
