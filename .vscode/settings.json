@@ -4,5 +4,8 @@
         "/workspaces/exercism-exercises/rust/triangle/Cargo.toml",
         "/workspaces/exercism-exercises/rust/luhn/Cargo.toml",
         "/workspaces/exercism-exercises/rust/parallel-letter-frequency/Cargo.toml",
+        "/workspaces/exercism-exercises/rust/macros/Cargo.toml",
+        "/workspaces/exercism-exercises/rust/all-your-base/Cargo.toml",
+        "/workspaces/exercism-exercises/rust/allergies/Cargo.toml",
     ]
 }
