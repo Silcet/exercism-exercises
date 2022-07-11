@@ -7,65 +7,85 @@ pub enum Error {
 #[derive(Copy, Clone, PartialEq)]
 pub enum Frame {
     Strike,
-    Spare(u16),
+    Spare(u16, u16),
     Open(u16, u16),
 }
 
 pub struct BowlingGame {
-    game: [Frame; 11],
-    frame: usize,
-    pins: u16,
-    roll: u16,
+    game: Vec<Frame>,
+    roll: Vec<u16>,
 }
 
 impl BowlingGame {
     pub fn new() -> Self {
         Self {
-            game: [Frame::Open(0, 0); 11],
-            frame: 0,
-            pins: 10,
-            roll: 0,
+            game: Vec::with_capacity(11),
+            roll: Vec::with_capacity(2)
         }
     }
 
     fn next_frame(&mut self) {
-        self.frame += 1;
-        self.pins = 10;
-        self.roll = 0;
+        if self.roll[0] == 10 {
+            self.game.push(Frame::Strike);
+        } else if self.roll.iter().sum::<u16>() == 10 {
+            self.game.push(Frame::Spare(self.roll[0], self.roll[1]));
+        } else {
+            self.game.push(Frame::Open(self.roll[0], self.roll[1]))
+        }
+
+        self.roll.clear();
+    }
+
+    fn game_over(&self) -> bool {
+        if self.game.len() > 10 {
+            return true;
+        }
+
+        if self.game.len() > 9 {
+            let last_frame = self.game.last().unwrap();
+            if matches!(last_frame, Frame::Open(..)) {
+                return true;
+            }
+        }
+
+        false
     }
 
     pub fn roll(&mut self, pins: u16) -> Result<(), Error> {
-        self.roll += 1;
-
-        if pins > 10 || pins > self.pins {
-            return Err(Error::NotEnoughPinsLeft);
-        }
-        if (self.frame > 10 && self.game[10] != Frame::Strike) || self.frame > 11 {
+        if self.game_over() {
             return Err(Error::GameComplete);
         }
 
-        if pins == 10 {
-            self.game[self.frame] = Frame::Strike;
+        if pins > 10 || self.roll.iter().sum::<u16>() + pins > 10 {
+            return Err(Error::NotEnoughPinsLeft);
+        }
+
+
+        self.roll.push(pins);
+        if self.roll.len() == 2 || pins == 10 || self.game.len() == 10 {
             self.next_frame();
-            return Ok(());
-        } else if self.roll == 2 {
-            self.game[self.frame] = if self.pins + pins == 0 {
-                Frame::Spare(10 - self.pins)
-            } else {
-                Frame::Open(10 - self.pins, pins)
-            };
-        } else {
-            self.pins -= pins;
         }
 
         Ok(())
     }
 
     pub fn score(&self) -> Option<u16> {
-        if self.frame >= 10 {
-            Some(0)
-        } else {
-            None
+        if !self.game_over() {
+            return None;
         }
+
+        Some(self.game.windows(3).fold(0, |score, frame| -> u16 {
+            match frame {
+                Frame::Strike => {
+                    if frame[1]
+                }
+            }
+        }))
+    }
+}
+
+impl Default for BowlingGame {
+    fn default() -> Self {
+        Self::new()
     }
 }
