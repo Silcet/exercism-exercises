@@ -10,5 +10,6 @@
         "/workspaces/exercism-exercises/rust/tournament/Cargo.toml",
         "/workspaces/exercism-exercises/rust/robot-simulator/Cargo.toml",
         "/workspaces/exercism-exercises/rust/poker/Cargo.toml",
+        "/workspaces/exercism-exercises/rust/bowling/Cargo.toml",
     ]
 }
