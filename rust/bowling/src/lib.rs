@@ -19,8 +19,8 @@ pub struct BowlingGame {
 impl BowlingGame {
     pub fn new() -> Self {
         Self {
-            game: Vec::with_capacity(11),
-            roll: Vec::with_capacity(2)
+            game: Vec::with_capacity(12),
+            roll: Vec::with_capacity(2),
         }
     }
 
@@ -60,9 +60,11 @@ impl BowlingGame {
             return Err(Error::NotEnoughPinsLeft);
         }
 
-
         self.roll.push(pins);
-        if self.roll.len() == 2 || pins == 10 || self.game.len() == 10 {
+        if self.roll.len() == 2
+            || pins == 10
+            || (self.game.len() == 10 && self.game.last().unwrap() != &Frame::Strike)
+        {
             self.next_frame();
         }
 
@@ -74,12 +76,36 @@ impl BowlingGame {
             return None;
         }
 
-        Some(self.game.windows(3).fold(0, |score, frame| -> u16 {
-            match frame {
-                Frame::Strike => {
-                    if frame[1]
+        let mut padded_game = self.game.clone();
+        if self.game.len() == 10 {
+            padded_game.extend([Frame::Open(0, 0); 2].iter().copied());
+        } else if self.game.len() == 11 {
+            padded_game.extend([Frame::Open(0, 0); 1].iter().copied());
+        }
+
+        Some(padded_game.windows(3).fold(0, |score, frame| -> u16 {
+            score
+                + match frame[0] {
+                    Frame::Strike => {
+                        10 + match frame[1] {
+                            Frame::Spare(r1, r2) | Frame::Open(r1, r2) => r1 + r2,
+                            Frame::Strike => {
+                                10 + match frame[2] {
+                                    Frame::Spare(r1, _) | Frame::Open(r1, _) => r1,
+                                    Frame::Strike => 10,
+                                }
+                            }
+                        }
+                    }
+                    Frame::Spare(r1, r2) => {
+                        r1 + r2
+                            + match frame[1] {
+                                Frame::Spare(r1, _) | Frame::Open(r1, _) => r1,
+                                Frame::Strike => 10,
+                            }
+                    }
+                    Frame::Open(r1, r2) => r1 + r2,
                 }
-            }
         }))
     }
 }
