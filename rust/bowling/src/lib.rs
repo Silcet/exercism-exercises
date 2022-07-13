@@ -25,12 +25,10 @@ impl BowlingGame {
     }
 
     fn next_frame(&mut self) {
-        println!("Pushing frame {}: {:?}", self.game.len() + 1, self.roll);
         if self.game.len() == 10 {
             self.game
                 .push(Frame::Open(self.roll[0], *self.roll.get(1).unwrap_or(&0)))
-        }
-        if self.roll[0] == 10 {
+        } else if self.roll[0] == 10 {
             self.game.push(Frame::Strike);
         } else if self.roll.iter().sum::<u16>() == 10 {
             self.game.push(Frame::Spare(self.roll[0], self.roll[1]));
@@ -43,7 +41,6 @@ impl BowlingGame {
 
     fn game_over(&self) -> bool {
         if self.game.len() >= 11 {
-            println!("Played 11 frames");
             return true;
         }
 
@@ -61,7 +58,6 @@ impl BowlingGame {
 
     pub fn roll(&mut self, pins: u16) -> Result<(), Error> {
         if pins > 10 {
-            println!("Too many pins. Pins: {}", pins);
             return Err(Error::NotEnoughPinsLeft);
         }
 
@@ -104,10 +100,14 @@ impl BowlingGame {
             return None;
         }
 
-        let mut normal_frames = self.game[..=8].to_vec();
-        normal_frames.extend([Frame::Open(0, 0); 2].iter().copied());
+        let mut padded_game = self.game.clone();
+        if self.game.len() == 10 {
+            padded_game.extend([Frame::Open(0, 0); 2].iter().copied());
+        } else {
+            padded_game.extend([Frame::Open(0, 0); 1].iter().copied());
+        }
 
-        let partial_score = normal_frames.windows(3).fold(0, |score, frame| -> u16 {
+        Some(padded_game.windows(3).fold(0, |score, frame| -> u16 {
             let temp = score
                 + match frame[0] {
                     Frame::Strike => {
@@ -130,22 +130,8 @@ impl BowlingGame {
                     }
                     Frame::Open(r1, r2) => r1 + r2,
                 };
-            println!("Window: {:?}, score: {}", frame, temp);
             temp
-        });
-
-        let last_frames_score: u16 = self.game[9..]
-            .iter()
-            .map(|frame| -> u16 {
-                match frame {
-                    Frame::Strike | Frame::Spare(_, _) => 10,
-                    Frame::Open(r1, r2) => r1 + r2,
-                }
-            })
-            .inspect(|x| println!("Last: {}", x))
-            .sum();
-
-        Some(partial_score + last_frames_score)
+        }))
     }
 }
 
