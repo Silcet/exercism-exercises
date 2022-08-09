@@ -18,8 +18,6 @@ pub fn winning_hands<'a>(hands: &[&'a str]) -> Vec<&'a str> {
                 match winning_hands.first().unwrap().partial_cmp(&hand) {
                     Some(Ordering::Greater) => {
                         println!("It's bigger");
-                        winning_hands.clear();
-                        winning_hands.push(hand);
                     }
                     Some(Ordering::Equal) => {
                         println!("It's the same");
@@ -27,6 +25,8 @@ pub fn winning_hands<'a>(hands: &[&'a str]) -> Vec<&'a str> {
                     }
                     Some(Ordering::Less) => {
                         println!("It's less");
+                        winning_hands.clear();
+                        winning_hands.push(hand);
                     }
                     None => panic!("Can't compare hands"),
                 }
@@ -39,23 +39,39 @@ pub fn winning_hands<'a>(hands: &[&'a str]) -> Vec<&'a str> {
         .collect()
 }
 
-#[derive(Ord, Eq, PartialOrd, PartialEq, Debug)]
+#[derive(Debug)]
 enum Hands {
-    StraightFlush(u8),
-    FourOfAKind(u8, u8),
-    FullHouse(u8, u8),
-    Flush(u8, u8),
-    Straight(u8),
-    ThreeOfAKind(u8),
-    TwoPair(u8, u8),
-    OnePair(u8, u8),
-    HighCard(u8),
+    StraightFlush(u32),
+    FourOfAKind(u32, u32),
+    FullHouse(u32, u32),
+    Flush(u32, u32),
+    Straight(u32),
+    ThreeOfAKind(u32, u32),
+    TwoPair(u32, u32, u32),
+    OnePair(u32, u32),
+    HighCard(u32),
+}
+
+impl Hands {
+    pub fn value(&self) -> u32 {
+        match self {
+            Self::HighCard(high) => *high,
+            Self::OnePair(pair, high) => 10000 + pair * 100 + high,
+            Self::TwoPair(pair1, pair2, high) => 20000 + pair1 * 100 + pair2,
+            Self::ThreeOfAKind(three, high) => 30000 + three * 100 + high,
+            Self::Straight(straight) => 40000 + straight * 100,
+            Self::Flush(high1, high2) => 50000 + high1 * 100 + high2,
+            Self::FullHouse(three, two) => 60000 + three * 100 + two,
+            Self::FourOfAKind(four, high) => 70000 + four * 100 + high,
+            Self::StraightFlush(straight) => 80000 + straight * 100,
+        }
+    }
 }
 
 #[derive(PartialEq, Debug)]
 struct PokerHand<'a> {
     pub cards: &'a str,
-    hand: Hands,
+    value: u32,
 }
 
 impl<'a> PokerHand<'a> {
@@ -65,14 +81,14 @@ impl<'a> PokerHand<'a> {
         println!("Cards map: {:?}", cards_map);
         Self {
             cards,
-            hand: Self::parse_cards(cards_map),
+            value: Self::parse_cards(cards_map),
         }
     }
 
-    fn cards_to_map(cards: &'a str) -> BTreeMap<u8, Vec<char>> {
+    fn cards_to_map(cards: &'a str) -> BTreeMap<u32, Vec<char>> {
         cards
             .split(' ')
-            .fold(BTreeMap::<u8, Vec<char>>::new(), |mut map, card| {
+            .fold(BTreeMap::<u32, Vec<char>>::new(), |mut map, card| {
                 let chars = card.chars().rev().collect::<String>();
                 let split_chars = chars.split_at(1);
                 let number = Self::parse_number(split_chars.1);
@@ -88,9 +104,9 @@ impl<'a> PokerHand<'a> {
             })
     }
 
-    fn parse_number(number: &str) -> u8 {
+    fn parse_number(number: &str) -> u32 {
         match number {
-            "A" => 1,
+            "A" => 14,
             "2" => 2,
             "3" => 3,
             "4" => 4,
@@ -107,22 +123,34 @@ impl<'a> PokerHand<'a> {
         }
     }
 
-    fn parse_cards(cards: BTreeMap<u8, Vec<char>>) -> Hands {
-        if cards.len() == 2 {
-            let keys: Vec<&u8> = cards.keys().collect();
-            match (cards[keys[0]].len(), cards[keys[1]].len()) {
+    fn parse_cards(cards: BTreeMap<u32, Vec<char>>) -> u32 {
+        let keys: Vec<&u32> = cards.keys().collect();
+        (match cards.len() {
+            2 => match (cards[keys[0]].len(), cards[keys[1]].len()) {
                 (4, 1) => Hands::FourOfAKind(*keys[0], *keys[1]),
                 (1, 4) => Hands::FourOfAKind(*keys[1], *keys[0]),
-                _ => Hands::OnePair(2, 1),
-            }
-        } else {
-            Hands::HighCard(1)
-        }
+                (3, 2) => Hands::FullHouse(*keys[0], *keys[1]),
+                (2, 3) => Hands::FullHouse(*keys[1], *keys[0]),
+                _ => panic!("Impossible card combination!"),
+            },
+            3 => match (
+                cards[keys[0]].len(),
+                cards[keys[1]].len(),
+                cards[keys[2]].len(),
+            ) {
+                (2, 2, 1) => Hands::TwoPair(*keys[0], *keys[1], *keys[2]),
+                (2, 1, 2) => Hands::TwoPair(*keys[0], *keys[2], *keys[1]),
+                (1, 2, 2) => Hands::TwoPair(*keys[1], *keys[2], *keys[0]),
+                _ => panic!("Impossible card combination!"),
+            },
+            _ => Hands::HighCard(1),
+        })
+        .value()
     }
 }
 
 impl<'a> PartialOrd for PokerHand<'a> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.hand.cmp(&other.hand))
+        self.value.partial_cmp(&other.value)
     }
 }
